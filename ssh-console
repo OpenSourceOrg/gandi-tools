@@ -1,0 +1,78 @@
+#!/usr/bin/python3
+
+# Copyright (C) 2015 Stefano Zacchiroli <zack@upsilon.cc>
+# License: GNU General Public License (GPL), version 3 or above
+
+import argparse
+import json
+import logging
+import os
+import sys
+
+from xmlrpc.client import ServerProxy
+
+API_URL = 'https://rpc.gandi.net/xmlrpc/'
+CONFFILE = './config.json'
+
+
+def parse_args():
+        cli = argparse.ArgumentParser()
+        sub = cli.add_subparsers(dest='action')
+        # sub.add_parser('status')
+        sub.add_parser('enable')
+        sub.add_parser('disable')
+
+        args = cli.parse_args()
+        if not args.action:
+                cli.error('no action given')
+
+        return args
+
+
+def read_conffile(fname):
+        if not os.path.exists(fname):
+                logging.error('cannot find configuration file %s, abort.' %
+                              fname)
+                sys.exit(1)
+
+        j = None
+        with open(fname) as f:
+                j = json.load(f)
+
+        return j
+
+
+def set_console_status(api, apikey, paas_id, status):
+        new_status = api.paas.update(apikey, paas_id, {'console': status})
+        assert new_status[0]['params']['console'] == status
+
+
+def main():
+        args = parse_args()
+        conf = read_conffile(CONFFILE)
+
+        apikey = conf['apikey']
+        api = ServerProxy(API_URL)
+        paas_instances = api.paas.list(apikey)
+        if not paas_instances:
+                logging.error('no PaaS instances found, abort.')
+                sys.exit(1)
+        paas_instance = paas_instances[0]
+        paas_id = paas_instance['id']
+        logging.info('PaaS instance %d' % paas_id)
+
+        if args.action == 'enable':
+                set_console_status(api, apikey, paas_id, True)
+                print('console enabled, you can now:\nssh %s' %
+                      paas_instance['console'])
+        elif args.action == 'disable':
+                set_console_status(api, apikey, paas_id, False)
+                print('console disabled')
+        elif args.action == 'status':
+                pass
+        else:
+                assert False
+
+
+if __name__ == '__main__':
+        main()

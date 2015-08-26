@@ -1,0 +1,4 @@
+{
+    "_comment": "rename this file to config.json, and fill it with API data",
+    "apikey": "my 24-character API key"
+}
